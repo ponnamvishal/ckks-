@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Cloud Analytics - Hybrid SSE + CKKS</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔐 Secure Cloud Analytics</h1>
+            <p class="subtitle">Hybrid SSE + CKKS Encryption System</p>
+            <div class="server-status" id="serverStatus">
+                <span class="status-indicator" id="statusIndicator"></span>
+                <span id="statusText">Checking server...</span>
+            </div>
+        </header>
+
+        <nav class="tabs">
+            <button class="tab-btn active" data-tab="ckks">CKKS Computation</button>
+            <button class="tab-btn" data-tab="sse">SSE Search</button>
+            <button class="tab-btn" data-tab="vectors">Stored Vectors</button>
+        </nav>
+
+        <!-- CKKS Computation Tab -->
+        <div class="tab-content active" id="ckks-tab">
+            <div class="card">
+                <h2>Encrypted Data Computation</h2>
+                <p class="description">Encrypt numeric data, upload to cloud, and compute mean without decryption.</p>
+                
+                <div class="section">
+                    <h3>Step 1: Upload Dataset</h3>
+                    <div class="input-group">
+                        <label for="fileInput">Upload File (CSV/TXT/JSON):</label>
+                        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                            <input type="file" id="fileInput" accept=".csv,.txt,.json" style="flex: 1; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);">
+                            <button class="btn btn-primary" onclick="uploadFile()">Upload</button>
+                        </div>
+                        <small style="color: var(--text-secondary); font-size: 0.85rem;">
+                            Supported formats: CSV (comma-separated), TXT (one number per line), JSON (array of numbers)
+                        </small>
+                    </div>
+                    <div class="result-box" id="fileUploadStatus" style="display: none;"></div>
+                </div>
+
+                <div class="section">
+                    <h3>Step 2: Encrypt Dataset → Generate Hash Value</h3>
+                    <p class="description" style="font-size: 0.9rem; margin-bottom: 15px;">Data will be encrypted using CKKS and a hash will be generated for verification.</p>
+                    <button class="btn btn-primary" onclick="encryptData()">Encrypt Data</button>
+                    <div class="result-box" id="uploadStatus" style="display: none; margin-top: 15px;"></div>
+                </div>
+
+                <div class="section">
+                    <h3>Step 3: Select Column</h3>
+                    <div class="input-group">
+                        <label for="datasetColumn">Select Column for Analysis:</label>
+                        <select id="datasetColumn" style="width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); margin-bottom: 15px;">
+                            <option value="">Select a column...</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="selectColumn()">Confirm Column Selection</button>
+                    </div>
+                    <div class="result-box" id="columnSelectionStatus" style="display: none; margin-top: 15px;"></div>
+                </div>
+
+                <!-- Hidden input for data storage -->
+                <input type="hidden" id="dataInput" value="">
+
+                <div class="section">
+                    <h3>Step 4: Perform Computations</h3>
+                    <p class="description" style="font-size: 0.9rem; margin-bottom: 15px;">Compute statistics on encrypted data: Mean, Mode, Variance, Histogram, Minimum, Maximum</p>
+                    <div class="input-group">
+                        <label for="computationSelect">Select Computation:</label>
+                        <select id="computationSelect" style="width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); margin-bottom: 15px;">
+                            <option value="mean">Mean</option>
+                            <option value="mode">Mode</option>
+                            <option value="variance">Variance</option>
+                            <option value="histogram">Histogram</option>
+                            <option value="min">Minimum</option>
+                            <option value="max">Maximum</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="vectorIdInput">Vector ID:</label>
+                        <input type="text" id="vectorIdInput" placeholder="Enter vector ID" readonly style="background: var(--bg-color); cursor: not-allowed;">
+                        <button class="btn btn-primary" onclick="computeStatistic()">Compute Selected Statistic</button>
+                    </div>
+                    <div class="result-box" id="computationStatus" style="display: none; margin-top: 15px;"></div>
+                </div>
+
+                <div class="section">
+                    <h3>Step 5: Encrypted Result</h3>
+                    <p class="description" style="font-size: 0.9rem; margin-bottom: 15px;">Result is computed on encrypted data and remains encrypted.</p>
+                    <div class="result-box" id="encryptedResultStatus" style="display: none;"></div>
+                </div>
+
+                <div class="section">
+                    <h3>Step 6: Decrypt Result</h3>
+                    <p class="description" style="font-size: 0.9rem; margin-bottom: 15px;">Decrypt the encrypted result to see the actual value.</p>
+                    <button class="btn btn-primary" onclick="decryptResult()">Decrypt Result</button>
+                    <div class="result-box" id="decryptStatus" style="display: none; margin-top: 15px;"></div>
+                </div>
+
+                <div class="section">
+                    <h3>Step 7: Result + Hash → ✓ Verification</h3>
+                    <p class="description" style="font-size: 0.9rem; margin-bottom: 15px;">Verify data integrity using hash comparison.</p>
+                    <div class="result-box" id="verificationStatus" style="display: none;"></div>
+                </div>
+
+                <div class="section" id="chartSection" style="display: none;">
+                    <h3>Data Visualization</h3>
+                    
+                    <div style="background: var(--card-bg); padding: 20px; border-radius: 8px; margin-top: 15px;">
+                        <canvas id="dataChart" style="max-height: 400px;"></canvas>
+                    </div>
+                    <div class="result-box" id="chartStats" style="margin-top: 15px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SSE Search Tab -->
+        <div class="tab-content" id="sse-tab">
+            <div class="card">
+                <h2>Encrypted Keyword Search (SSE)</h2>
+                <p class="description">Upload dataset, encrypt keywords, and search without revealing search terms.</p>
+                
+                <div class="section">
+                    <h3>Step 1: Upload Dataset</h3>
+                    <div class="input-group">
+                        <label for="sseFileInput">Upload File (CSV):</label>
+                        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                            <input type="file" id="sseFileInput" accept=".csv" style="flex: 1; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);">
+                            <button class="btn btn-primary" onclick="uploadSSEFile()">Upload</button>
+                        </div>
+                        <small style="color: var(--text-secondary); font-size: 0.85rem;">
+                            Upload a CSV file with patient/record data. Example: hospital_data.csv with columns like Name, Age, Condition, etc.
+                        </small>
+                    </div>
+                    <div class="result-box" id="sseFileUploadStatus" style="display: none;"></div>
+                </div>
+
+                <div class="section">
+                    <h3>Step 2: Encrypt</h3>
+                    <p class="description" style="font-size: 0.9rem; margin-bottom: 15px;">Select which column contains keywords to search (e.g., Condition, Disease, Diagnosis).</p>
+                    <div class="input-group">
+                        <label for="sseKeywordColumn">Keyword Column:</label>
+                        <select id="sseKeywordColumn" style="width: 100%; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); margin-bottom: 15px;">
+                            <option value="">Select keyword column...</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="encryptSSEData()">Encrypt Keywords</button>
+                    </div>
+                    <div class="result-box" id="sseEncryptStatus" style="display: none; margin-top: 15px;"></div>
+                </div>
+
+                <div class="section">
+                    <h3>Step 3: Keyword Search</h3>
+                    <p class="description" style="font-size: 0.9rem; margin-bottom: 15px;">Search for records by keyword (e.g., "cancer", "diabetes", "heart disease").</p>
+                    <div class="input-group">
+                        <label for="sseSearchKeyword">Search Keyword:</label>
+                        <input type="text" id="sseSearchKeyword" placeholder="e.g., cancer">
+                        <button class="btn btn-primary" onclick="searchSSEKeyword()">Search</button>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Step 4: (Keyword Encrypt)</h3>
+                    <p class="description" style="font-size: 0.9rem; margin-bottom: 15px;">Search keyword is encrypted before sending to server.</p>
+                    <div class="result-box" id="sseKeywordEncryptStatus" style="display: none;"></div>
+                </div>
+
+                <div class="section">
+                    <h3>Step 5: Encrypted Result</h3>
+                    <p class="description" style="font-size: 0.9rem; margin-bottom: 15px;">Server searches encrypted index and returns encrypted results.</p>
+                    <div class="result-box" id="sseEncryptedResultStatus" style="display: none;"></div>
+                </div>
+
+                <div class="section">
+                    <h3>Step 6: Decrypt</h3>
+                    <p class="description" style="font-size: 0.9rem; margin-bottom: 15px;">Decrypt the search results to see matching records.</p>
+                    <button class="btn btn-primary" onclick="decryptSSEResults()">Decrypt Results</button>
+                    <div class="result-box" id="sseDecryptStatus" style="display: none; margin-top: 15px;"></div>
+                </div>
+
+                <div class="section">
+                    <h3>Step 7: Table Form Result</h3>
+                    <p class="description" style="font-size: 0.9rem; margin-bottom: 15px;">View matching records in table format.</p>
+                    <div id="sseTableResult" style="display: none;">
+                        <div style="overflow-x: auto;">
+                            <table id="sseResultTable" style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                                <thead id="sseTableHead"></thead>
+                                <tbody id="sseTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stored Vectors Tab -->
+        <div class="tab-content" id="vectors-tab">
+            <div class="card">
+                <h2>Stored Encrypted Vectors</h2>
+                <p class="description">View all vectors stored on the cloud server.</p>
+                
+                <button class="btn btn-secondary" onclick="loadVectors()">Refresh List</button>
+                
+                <div class="section" id="vectorsList" style="display: none;">
+                    <h3>Stored Vectors</h3>
+                    <div class="result-box" id="vectorsStatus"></div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Secure Cloud Analytics Prototype - CKKS Homomorphic Encryption + SSE Searchable Encryption</p>
+        </footer>
+    </div>
+
+    <!-- Load Chart.js for visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Load TenSEAL library -->
+    <script src="https://cdn.jsdelivr.net/npm/tenseal@0.3.14/dist/tenseal.js"></script>
+    <script src="js/crypto-utils.js"></script>
+    <script src="js/api-client.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

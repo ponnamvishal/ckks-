@@ -1,0 +1,31 @@
+id,value,price,quantity,revenue,category,keyword,description
+1,109.93,35.85,2,6266.91,medical,health,Patient health records
+2,97.23,45.79,90,4292.33,financial,banking,Transaction data
+3,112.95,46.57,17,5443.82,medical,research,Clinical trial results
+4,130.46,41.98,33,5774.63,legal,contract,Legal agreement
+5,95.32,48.39,9,4073.07,financial,investment,Portfolio analysis
+6,88.45,52.12,45,2345.40,medical,diagnosis,Diagnostic report
+7,105.67,38.24,28,2954.72,legal,compliance,Compliance document
+8,92.18,44.56,12,534.72,financial,audit,Audit report
+9,118.34,39.87,56,2233.72,medical,treatment,Treatment plan
+10,101.25,47.23,34,1605.82,legal,litigation,Case file
+11,87.56,43.91,23,1009.93,financial,loan,Loan application
+12,115.78,40.15,67,2689.05,medical,prescription,Prescription record
+13,94.32,46.78,19,888.82,legal,patent,Patent filing
+14,103.45,42.33,41,1735.53,financial,tax,Tax document
+15,89.67,49.12,8,392.96,medical,lab,Lab test results
+16,107.23,37.89,52,1970.28,legal,agreement,Service agreement
+17,91.45,45.67,15,685.05,financial,credit,Credit report
+18,116.78,41.23,29,1195.67,medical,imaging,Medical imaging
+19,98.12,48.45,36,1744.20,legal,license,License document
+20,85.34,44.78,21,940.38,financial,insurance,Insurance claim
+21,113.56,39.56,48,1898.88,medical,emergency,Emergency record
+22,96.78,47.12,14,659.68,legal,will,Will document
+23,104.23,43.45,31,1346.95,financial,mortgage,Mortgage application
+24,90.45,46.89,18,844.10,medical,vaccination,Vaccination record
+25,119.67,38.67,55,2126.85,legal,deed,Property deed
+26,93.12,45.23,22,995.06,financial,statement,Financial statement
+27,108.89,42.78,39,1668.42,medical,discharge,Discharge summary
+28,97.45,49.34,11,542.74,legal,contract,Service contract
+29,102.67,41.56,27,1122.12,financial,report,Annual report
+30,88.23,47.89,16,766.24,medical,consultation,Consultation notes
