@@ -1358,79 +1358,55 @@ function displayCKKSResultDataset(data, columnName, computation, decryptedValue)
     const head = document.getElementById('ckksResultHead');
     const body = document.getElementById('ckksResultBody');
 
-    if (!section || !head || !body || !Array.isArray(data) || data.length === 0) {
+    if (!section || !head || !body) {
         return;
     }
 
     const safeColumn = columnName || 'Selected Column';
-    const computationName = getComputationName(computation || 'Result');
-    const firstRow = data[0];
-    const isRowObject = firstRow !== null && typeof firstRow === 'object' && !Array.isArray(firstRow);
+    const op = (computation || 'result').toLowerCase();
+    const operationName = getComputationName(op);
+    const stats = window.chartStats || {};
+    const count = Array.isArray(uploadedData) ? uploadedData.length : 0;
 
-    if (isRowObject) {
-        const allColumns = Object.keys(firstRow);
-        let headerHtml = '<tr><th>#</th>';
-        allColumns.forEach(col => {
-            const highlightClass = col === safeColumn ? ' class="ckks-highlight-col"' : '';
-            headerHtml += `<th${highlightClass}>${col}</th>`;
-        });
-        headerHtml += `<th class="ckks-result-col">${computationName}</th></tr>`;
-        head.innerHTML = headerHtml;
+    const formatValue = (value) => {
+        const n = Number(value);
+        return Number.isFinite(n) ? n.toFixed(4) : String(value ?? 'N/A');
+    };
 
-        let rowsHtml = '';
-        data.forEach((row, index) => {
-            rowsHtml += '<tr>';
-            rowsHtml += `<td>${index + 1}</td>`;
-            allColumns.forEach(col => {
-                const highlightClass = col === safeColumn ? ' class="ckks-highlight-col"' : '';
-                rowsHtml += `<td${highlightClass}>${row[col] ?? ''}</td>`;
-            });
-            rowsHtml += '<td></td>';
-            rowsHtml += '</tr>';
-        });
+    const rows = [
+        ['Column', safeColumn],
+        ['Operation', operationName],
+        ['Result', formatValue(decryptedValue)],
+        ['Count', String(count)]
+    ];
 
-        rowsHtml += `<tr class="ckks-final-row"><td>Final</td>`;
-        allColumns.forEach(col => {
-            if (col === safeColumn) {
-                rowsHtml += `<td class="ckks-highlight-col">Computed ${computationName}</td>`;
-            } else {
-                rowsHtml += '<td></td>';
-            }
-        });
-        rowsHtml += `<td class="ckks-result-col">${Number(decryptedValue).toFixed(6)}</td></tr>`;
-
-        body.innerHTML = rowsHtml;
-    } else {
-        // Fallback for array-only input
-        head.innerHTML = `
-            <tr>
-                <th>#</th>
-                <th class="ckks-highlight-col">${safeColumn}</th>
-                <th class="ckks-result-col">${computationName}</th>
-            </tr>
-        `;
-
-        let rows = '';
-        data.forEach((value, index) => {
-            rows += `
-                <tr>
-                    <td>${index + 1}</td>
-                    <td class="ckks-highlight-col">${value}</td>
-                    <td></td>
-                </tr>
-            `;
-        });
-
-        rows += `
-            <tr class="ckks-final-row">
-                <td>Final</td>
-                <td class="ckks-highlight-col">Computed ${computationName}</td>
-                <td class="ckks-result-col">${Number(decryptedValue).toFixed(6)}</td>
-            </tr>
-        `;
-
-        body.innerHTML = rows;
+    if (op === 'mean' && Number.isFinite(stats.mean)) {
+        rows.push(['Mean', formatValue(stats.mean)]);
+    } else if (op === 'mode' && Number.isFinite(stats.mode)) {
+        rows.push(['Mode', formatValue(stats.mode)]);
+    } else if (op === 'variance') {
+        if (Number.isFinite(stats.variance)) rows.push(['Variance', formatValue(stats.variance)]);
+        if (Number.isFinite(stats.std)) rows.push(['Std Dev', formatValue(stats.std)]);
+    } else if (op === 'histogram') {
+        if (Number.isFinite(stats.min)) rows.push(['Minimum', formatValue(stats.min)]);
+        if (Number.isFinite(stats.max)) rows.push(['Maximum', formatValue(stats.max)]);
+    } else if (op === 'min' && Number.isFinite(stats.min)) {
+        rows.push(['Minimum', formatValue(stats.min)]);
+    } else if (op === 'max' && Number.isFinite(stats.max)) {
+        rows.push(['Maximum', formatValue(stats.max)]);
     }
+
+    head.innerHTML = `
+        <tr>
+            <th>Metric</th>
+            <th>Value</th>
+        </tr>
+    `;
+
+    body.innerHTML = rows.map(([metric, value]) => {
+        const highlightClass = metric === 'Result' ? ' class="ckks-result-col"' : '';
+        return `<tr><td>${metric}</td><td${highlightClass}>${value}</td></tr>`;
+    }).join('');
 
     section.style.display = 'block';
 }
@@ -2317,6 +2293,7 @@ function displaySSEResultsTable(records) {
     // Show table
     tableResult.style.display = 'block';
 }
+
 
 
 
