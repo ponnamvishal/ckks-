@@ -1447,14 +1447,29 @@ function displayCKKSResultDataset(data, columnName, computation, decryptedValue)
         }
     }
 
-    const filteredRows = data.filter(row => {
+    const filterRowsByTarget = (target) => data.filter(row => {
         const cellValue = row[safeColumn];
-        if (Number.isFinite(effectiveNumericTarget)) {
+        if (Number.isFinite(target)) {
             const cellNum = Number(cellValue);
-            return Number.isFinite(cellNum) && Math.abs(cellNum - effectiveNumericTarget) <= tolerance;
+            return Number.isFinite(cellNum) && Math.abs(cellNum - target) <= tolerance;
         }
-        return String(cellValue ?? '').trim().toLowerCase() === String(effectiveTarget ?? '').trim().toLowerCase();
+        return String(cellValue ?? '').trim().toLowerCase() === String(target ?? '').trim().toLowerCase();
     });
+
+    let filteredRows = filterRowsByTarget(Number.isFinite(effectiveNumericTarget) ? effectiveNumericTarget : effectiveTarget);
+
+    let nearestValueUsed = null;
+    if (filteredRows.length === 0 && Number.isFinite(effectiveNumericTarget) && columnNumericValues.length > 0) {
+        nearestValueUsed = columnNumericValues.reduce((nearest, value) => {
+            if (nearest === null) return value;
+            return Math.abs(value - effectiveNumericTarget) < Math.abs(nearest - effectiveNumericTarget) ? value : nearest;
+        }, null);
+        filteredRows = filterRowsByTarget(nearestValueUsed);
+        if (Number.isFinite(nearestValueUsed)) {
+            effectiveNumericTarget = nearestValueUsed;
+            effectiveTarget = nearestValueUsed;
+        }
+    }
 
     let headerHtml = '<tr><th>#</th>';
     allColumns.forEach(col => {
@@ -1489,9 +1504,14 @@ function displayCKKSResultDataset(data, columnName, computation, decryptedValue)
     });
 
     const resultText = Number.isFinite(effectiveNumericTarget) ? effectiveNumericTarget.toFixed(4) : effectiveTarget;
-    const fallbackNote = usedDatasetFallback
-        ? ' | Note: used dataset-derived exact value for row matching.'
-        : '';
+    const fallbackParts = [];
+    if (usedDatasetFallback) {
+        fallbackParts.push('used dataset-derived exact value for row matching');
+    }
+    if (Number.isFinite(nearestValueUsed)) {
+        fallbackParts.push(`nearest available value selected (${nearestValueUsed.toFixed(4)})`);
+    }
+    const fallbackNote = fallbackParts.length > 0 ? ` | Note: ${fallbackParts.join('; ')}.` : '';
 
     rowsHtml += `
         <tr class="ckks-final-row">
