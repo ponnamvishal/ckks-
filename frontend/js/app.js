@@ -119,7 +119,7 @@ async function computeStatistic() {
         // Show Step 5: Encrypted Result
         encryptedResultStatus.className = 'result-box info';
         encryptedResultStatus.textContent = `Step 5: Encrypted Result Ready\n\n` +
-            `Encrypted result: ${window.encryptedResult.substring(0, 50)}...\n\n` +
+            `Encrypted result: ${window.encryptedResult}\n\n` +
             `Result is still encrypted. Click "Decrypt Result" in Step 6 to see the actual value.`;
         encryptedResultStatus.style.display = 'block';
         
@@ -156,7 +156,7 @@ async function decryptResult() {
         
         decryptStatus.className = 'result-box success';
         decryptStatus.textContent = `✓ Step 6 Complete: Result decrypted!\n\n` +
-            `Encrypted result: ${window.encryptedResult.substring(0, 50)}...\n\n` +
+            `Encrypted result: ${window.encryptedResult}\n\n` +
             `Note: In production, client would decrypt using TenSEAL.js.\n` +
             `For this demo, decryption happens server-side.\n\n` +
             `Proceed to Step 7 for verification.`;
@@ -2093,5 +2093,6 @@ function displaySSEResultsTable(records) {
     // Show table
     tableResult.style.display = 'block';
 }
+
 
 
