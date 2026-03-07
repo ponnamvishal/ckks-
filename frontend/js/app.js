@@ -188,7 +188,7 @@ async function decryptResult() {
         if (uploadedData && uploadedData.length > 0 && computation) {
             renderDataChart(uploadedData, computation);
             const selectedColumn = document.getElementById('datasetColumn')?.value || 'Selected Column';
-            displayCKKSResultDataset(uploadedData, selectedColumn, computation, decryptedValue);
+            displayCKKSResultDataset(window.ckksDatasetRows || uploadedData, selectedColumn, computation, decryptedValue);
         }
         
         // Show Step 7: Verification
@@ -514,44 +514,52 @@ async function loadSelectedS3Dataset() {
             throw new Error('No numeric columns found in selected S3 dataset');
         }
 
-        columnSelect.innerHTML = '<option value="">Select a column...</option>';
+        const recordsResp = await fetch(`${window.location.origin}/s3/dataset/records`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                key,
+                limit: 200
+            })
+        });
+
+        const recordsResult = await recordsResp.json();
+        if (!recordsResp.ok || recordsResult.error) {
+            throw new Error(recordsResult.error || 'Failed to fetch S3 dataset rows');
+        }
+
+        const rows = recordsResult.records || [];
+        if (rows.length === 0) {
+            throw new Error('No rows found in selected S3 dataset');
+        }
+
+        uploadedFileData = {};
+        const loadedColumns = [];
+
         numericColumns.forEach(col => {
+            const values = rows
+                .map(row => parseFloat(row[col]))
+                .filter(value => !Number.isNaN(value));
+
+            if (values.length > 0) {
+                uploadedFileData[col] = values;
+                loadedColumns.push(col);
+            }
+        });
+
+        if (loadedColumns.length === 0) {
+            throw new Error('No numeric values available for encryption in this dataset');
+        }
+
+        columnSelect.innerHTML = '<option value="">Select a column...</option>';
+        loadedColumns.forEach(col => {
             const option = document.createElement('option');
             option.value = col;
             option.textContent = col;
             columnSelect.appendChild(option);
         });
-        uploadedFileData = {};
-        const loadedColumns = [];
-
-        for (const col of numericColumns) {
-            const loadResp = await fetch(`${window.location.origin}/s3/dataset/load`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    key,
-                    column: col,
-                    n_samples: 200
-                })
-            });
-
-            const loadResult = await loadResp.json();
-            if (!loadResp.ok || loadResult.error) {
-                continue;
-            }
-
-            const sampleData = loadResult.sample_data || [];
-            if (sampleData.length) {
-                uploadedFileData[col] = sampleData;
-                loadedColumns.push(col);
-            }
-        }
-
-        if (loadedColumns.length === 0) {
-            throw new Error('No numeric samples could be loaded from the selected S3 dataset');
-        }
 
         const firstColumn = loadedColumns[0];
         const firstSampleData = uploadedFileData[firstColumn];
@@ -561,15 +569,14 @@ async function loadSelectedS3Dataset() {
         fileColumns = loadedColumns;
         uploadedData = firstSampleData;
         window.loadedS3DatasetKey = key;
+        window.ckksDatasetRows = rows;
 
         status.className = 'result-box success';
         status.textContent = `Step 1 Complete: S3 dataset loaded\n\n` +
             `Dataset: ${key}\n` +
-            `Rows: ${columnsResult.total_rows}\n` +
-            `Numeric columns found: ${numericColumns.length}\n` +
-            `Numeric columns loaded: ${loadedColumns.length}\n` +
-            `Preview column: ${firstColumn}\n` +
-            `Sample points loaded per column: up to 200\n\n` +
+            `Rows loaded: ${rows.length}\n` +
+            `Numeric columns available: ${loadedColumns.length}\n` +
+            `Selected default column: ${firstColumn}\n\n` +
             `Proceed to Step 2 to encrypt.`;
     } catch (error) {
         status.className = 'result-box error';
@@ -1357,35 +1364,74 @@ function displayCKKSResultDataset(data, columnName, computation, decryptedValue)
 
     const safeColumn = columnName || 'Selected Column';
     const computationName = getComputationName(computation || 'Result');
+    const firstRow = data[0];
+    const isRowObject = firstRow !== null && typeof firstRow === 'object' && !Array.isArray(firstRow);
 
-    head.innerHTML = `
-        <tr>
-            <th>#</th>
-            <th>${safeColumn}</th>
-            <th>${computationName}</th>
-        </tr>
-    `;
+    if (isRowObject) {
+        const allColumns = Object.keys(firstRow);
+        let headerHtml = '<tr><th>#</th>';
+        allColumns.forEach(col => {
+            const highlightClass = col === safeColumn ? ' class="ckks-highlight-col"' : '';
+            headerHtml += `<th${highlightClass}>${col}</th>`;
+        });
+        headerHtml += `<th class="ckks-result-col">${computationName}</th></tr>`;
+        head.innerHTML = headerHtml;
 
-    let rows = '';
-    data.forEach((value, index) => {
-        rows += `
+        let rowsHtml = '';
+        data.forEach((row, index) => {
+            rowsHtml += '<tr>';
+            rowsHtml += `<td>${index + 1}</td>`;
+            allColumns.forEach(col => {
+                const highlightClass = col === safeColumn ? ' class="ckks-highlight-col"' : '';
+                rowsHtml += `<td${highlightClass}>${row[col] ?? ''}</td>`;
+            });
+            rowsHtml += '<td></td>';
+            rowsHtml += '</tr>';
+        });
+
+        rowsHtml += `<tr class="ckks-final-row"><td>Final</td>`;
+        allColumns.forEach(col => {
+            if (col === safeColumn) {
+                rowsHtml += `<td class="ckks-highlight-col">Computed ${computationName}</td>`;
+            } else {
+                rowsHtml += '<td></td>';
+            }
+        });
+        rowsHtml += `<td class="ckks-result-col">${Number(decryptedValue).toFixed(6)}</td></tr>`;
+
+        body.innerHTML = rowsHtml;
+    } else {
+        // Fallback for array-only input
+        head.innerHTML = `
             <tr>
-                <td>${index + 1}</td>
-                <td>${value}</td>
-                <td></td>
+                <th>#</th>
+                <th class="ckks-highlight-col">${safeColumn}</th>
+                <th class="ckks-result-col">${computationName}</th>
             </tr>
         `;
-    });
 
-    rows += `
-        <tr style="font-weight: 700; background: rgba(16, 185, 129, 0.12);">
-            <td>Final</td>
-            <td>Computed ${computationName}</td>
-            <td>${Number(decryptedValue).toFixed(6)}</td>
-        </tr>
-    `;
+        let rows = '';
+        data.forEach((value, index) => {
+            rows += `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td class="ckks-highlight-col">${value}</td>
+                    <td></td>
+                </tr>
+            `;
+        });
 
-    body.innerHTML = rows;
+        rows += `
+            <tr class="ckks-final-row">
+                <td>Final</td>
+                <td class="ckks-highlight-col">Computed ${computationName}</td>
+                <td class="ckks-result-col">${Number(decryptedValue).toFixed(6)}</td>
+            </tr>
+        `;
+
+        body.innerHTML = rows;
+    }
+
     section.style.display = 'block';
 }
 
@@ -2271,6 +2317,9 @@ function displaySSEResultsTable(records) {
     // Show table
     tableResult.style.display = 'block';
 }
+
+
+
 
 
 

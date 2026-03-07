@@ -463,3 +463,18 @@ input[type="file"]::file-selector-button:hover {
 small {
     color: var(--text-secondary) !important;
 }
+
+/* CKKS final result table emphasis */
+.ckks-highlight-col {
+    background: rgba(59, 130, 246, 0.14) !important;
+}
+
+.ckks-result-col {
+    background: rgba(16, 185, 129, 0.16) !important;
+    font-weight: 700;
+}
+
+.ckks-final-row td {
+    border-top: 2px solid rgba(16, 185, 129, 0.5);
+}
+
