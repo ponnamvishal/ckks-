@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadVectors();
     loadDatasetColumns();
     loadSSEColumns();
+    refreshS3Datasets();
 });
 
 /**
@@ -418,6 +419,143 @@ async function loadDatasetColumns() {
         columnSelect.innerHTML = '<option value="">Error loading columns</option>';
     }
 }
+
+/**
+ * Load available datasets from S3
+ */
+async function refreshS3Datasets() {
+    const select = document.getElementById('s3DatasetSelect');
+    if (!select) {
+        return;
+    }
+
+    try {
+        select.innerHTML = '<option value="">Loading S3 datasets...</option>';
+        const response = await fetch(`${window.location.origin}/s3/datasets`);
+        const result = await response.json();
+
+        if (!response.ok || result.error) {
+            throw new Error(result.error || 'Failed to fetch S3 dataset list');
+        }
+
+        select.innerHTML = '<option value="">Select S3 dataset...</option>';
+        result.datasets.forEach(key => {
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = key;
+            select.appendChild(option);
+        });
+
+        if (!result.datasets || result.datasets.length === 0) {
+            select.innerHTML = '<option value="">No S3 datasets found</option>';
+        }
+    } catch (error) {
+        console.error('Error loading S3 datasets:', error);
+        select.innerHTML = '<option value="">Error loading S3 datasets</option>';
+    }
+}
+
+/**
+ * Load selected S3 dataset into Step 1/2 CKKS workflow
+ */
+async function loadSelectedS3Dataset() {
+    const select = document.getElementById('s3DatasetSelect');
+    const status = document.getElementById('fileUploadStatus');
+    const columnSelect = document.getElementById('datasetColumn');
+    const dataInput = document.getElementById('dataInput');
+
+    if (!select || !status || !columnSelect || !dataInput) {
+        return;
+    }
+
+    const key = select.value;
+    if (!key) {
+        alert('Please select an S3 dataset first');
+        return;
+    }
+
+    try {
+        status.className = 'result-box info';
+        status.textContent = `Loading dataset from S3: ${key}...`;
+        status.style.display = 'block';
+
+        const columnsResp = await fetch(`${window.location.origin}/s3/dataset/columns?key=${encodeURIComponent(key)}`);
+        const columnsResult = await columnsResp.json();
+        if (!columnsResp.ok || columnsResult.error) {
+            throw new Error(columnsResult.error || 'Failed to fetch S3 dataset columns');
+        }
+
+        const numericColumns = columnsResult.numeric_columns || [];
+        if (numericColumns.length === 0) {
+            throw new Error('No numeric columns found in selected S3 dataset');
+        }
+
+        columnSelect.innerHTML = '<option value="">Select a column...</option>';
+        numericColumns.forEach(col => {
+            const option = document.createElement('option');
+            option.value = col;
+            option.textContent = col;
+            columnSelect.appendChild(option);
+        });
+        uploadedFileData = {};
+        const loadedColumns = [];
+
+        for (const col of numericColumns) {
+            const loadResp = await fetch(`${window.location.origin}/s3/dataset/load`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    key,
+                    column: col,
+                    n_samples: 200
+                })
+            });
+
+            const loadResult = await loadResp.json();
+            if (!loadResp.ok || loadResult.error) {
+                continue;
+            }
+
+            const sampleData = loadResult.sample_data || [];
+            if (sampleData.length) {
+                uploadedFileData[col] = sampleData;
+                loadedColumns.push(col);
+            }
+        }
+
+        if (loadedColumns.length === 0) {
+            throw new Error('No numeric samples could be loaded from the selected S3 dataset');
+        }
+
+        const firstColumn = loadedColumns[0];
+        const firstSampleData = uploadedFileData[firstColumn];
+        dataInput.value = firstSampleData.slice(0, 100).join(', ');
+
+        uploadedFileName = key;
+        fileColumns = loadedColumns;
+        uploadedData = firstSampleData;
+        window.loadedS3DatasetKey = key;
+
+        status.className = 'result-box success';
+        status.textContent = `Step 1 Complete: S3 dataset loaded\n\n` +
+            `Dataset: ${key}\n` +
+            `Rows: ${columnsResult.total_rows}\n` +
+            `Numeric columns found: ${numericColumns.length}\n` +
+            `Numeric columns loaded: ${loadedColumns.length}\n` +
+            `Preview column: ${firstColumn}\n` +
+            `Sample points loaded per column: up to 200\n\n` +
+            `Proceed to Step 2 to encrypt.`;
+    } catch (error) {
+        status.className = 'result-box error';
+        status.textContent = `Error loading S3 dataset: ${error.message}`;
+        status.style.display = 'block';
+    }
+}
+
+window.refreshS3Datasets = refreshS3Datasets;
+window.loadSelectedS3Dataset = loadSelectedS3Dataset;
 
 /**
  * Upload and process external file
@@ -1955,3 +2093,4 @@ function displaySSEResultsTable(records) {
     // Show table
     tableResult.style.display = 'block';
 }
+

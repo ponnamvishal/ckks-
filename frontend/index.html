@@ -40,6 +40,20 @@
                         <small style="color: var(--text-secondary); font-size: 0.85rem;">
                             Supported formats: CSV (comma-separated), TXT (one number per line), JSON (array of numbers)
                         </small>
+
+                        <hr style="margin: 16px 0; border: 0; border-top: 1px solid var(--border-color);">
+
+                        <label for="s3DatasetSelect">Or load dataset from S3:</label>
+                        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                            <select id="s3DatasetSelect" style="flex: 1; padding: 12px; background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary);">
+                                <option value="">Select S3 dataset...</option>
+                            </select>
+                            <button class="btn btn-secondary" onclick="refreshS3Datasets()">Refresh</button>
+                            <button class="btn btn-primary" onclick="loadSelectedS3Dataset()">Load</button>
+                        </div>
+                        <small style="color: var(--text-secondary); font-size: 0.85rem; display:block; margin-bottom: 10px;">
+                            S3 source: bucket <code>homomorphicckks</code>, region <code>eu-north-1</code>
+                        </small>
                     </div>
                     <div class="result-box" id="fileUploadStatus" style="display: none;"></div>
                 </div>
@@ -225,3 +239,4 @@
     <script src="js/app.js"></script>
 </body>
 </html>
+

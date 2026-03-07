@@ -5,6 +5,10 @@ import base64
 import os
 import sys
 import numpy as np
+import io
+import json
+import boto3
+import pandas as pd
 from .ckks_compute import (encrypted_mean, encrypted_mode, encrypted_variance, 
                            encrypted_histogram, encrypted_minimum, encrypted_maximum,
                            encrypted_linear_regression)
@@ -17,6 +21,68 @@ CORS(app)  # Enable CORS for all routes
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRONTEND_DIR = os.path.join(PROJECT_ROOT, 'frontend')
 
+# AWS S3 dataset configuration
+S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'homomorphicckks')
+AWS_REGION = os.getenv('AWS_REGION', 'eu-north-1')
+S3_DATASETS_PREFIX = os.getenv('S3_DATASETS_PREFIX', 'datasets/')
+
+def _is_s3_configured():
+    return bool(S3_BUCKET_NAME)
+
+def _get_s3_client():
+    """Create an S3 client using IAM role or environment credentials."""
+    if not _is_s3_configured():
+        raise ValueError('S3_BUCKET_NAME is not configured')
+    return boto3.client('s3', region_name=AWS_REGION)
+
+def _read_s3_dataset_to_dataframe(dataset_key):
+    """Load CSV/JSON/TXT dataset from S3 into a pandas DataFrame."""
+    if not dataset_key:
+        raise ValueError('dataset key is required')
+
+    s3 = _get_s3_client()
+    obj = s3.get_object(Bucket=S3_BUCKET_NAME, Key=dataset_key)
+    content = obj['Body'].read().decode('utf-8')
+    ext = os.path.splitext(dataset_key)[1].lower()
+
+    if ext == '.csv':
+        return pd.read_csv(io.StringIO(content))
+    if ext == '.json':
+        parsed = json.loads(content)
+        if isinstance(parsed, list):
+            return pd.DataFrame(parsed)
+        if isinstance(parsed, dict):
+            return pd.DataFrame([parsed])
+        raise ValueError('Unsupported JSON structure in S3 dataset')
+    if ext == '.txt':
+        values = []
+        for line in content.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                values.append(float(line))
+            except ValueError:
+                continue
+        if not values:
+            raise ValueError('No numeric values found in TXT dataset')
+        return pd.DataFrame({'value': values})
+
+    raise ValueError(f'Unsupported dataset extension: {ext}')
+
+def _list_s3_dataset_keys(prefix=None):
+    """List dataset object keys in the configured S3 bucket."""
+    s3 = _get_s3_client()
+    effective_prefix = prefix if prefix is not None else S3_DATASETS_PREFIX
+    paginator = s3.get_paginator('list_objects_v2')
+
+    keys = []
+    for page in paginator.paginate(Bucket=S3_BUCKET_NAME, Prefix=effective_prefix):
+        for obj in page.get('Contents', []):
+            key = obj.get('Key')
+            if key and key.lower().endswith(('.csv', '.json', '.txt')):
+                keys.append(key)
+    return keys
 # Storage for encrypted vectors with hash values
 stored_vectors = {}
 vector_counter = 0
@@ -58,7 +124,10 @@ def api_info():
             "GET /max/<vector_id>": "Compute maximum of encrypted vector",
             "POST /decrypt": "Decrypt result and verify with hash (requires: encrypted_result, vector_id OR context, original_hash)",
             "POST /sse/store": "Store document with encrypted keyword (requires: doc_id, encrypted_keyword, metadata)",
-            "POST /sse/search": "Search encrypted keywords (requires: encrypted_keyword)"
+            "POST /sse/search": "Search encrypted keywords (requires: encrypted_keyword)",
+            "GET /s3/datasets": "List CSV/JSON/TXT datasets from S3",
+            "GET /s3/dataset/columns?key=<dataset_key>": "Get numeric/text columns for one S3 dataset",
+            "POST /s3/dataset/load": "Load sample records from S3 dataset for CKKS/SSE workflows"
         },
         "examples": {
             "upload": "POST /upload with JSON: {\"id\": \"vec1\", \"plaintext\": [1,2,3], \"encrypt\": true}",
@@ -82,8 +151,33 @@ def js_files(filename):
 
 @app.route("/health", methods=["GET"])
 def health():
-    """Health check endpoint."""
-    return jsonify({"status": "healthy", "service": "Secure Cloud Analytics"})
+    """Health check endpoint with optional S3 connectivity check."""
+    s3_status = "not_configured"
+    s3_error = None
+
+    if _is_s3_configured():
+        try:
+            s3 = _get_s3_client()
+            s3.head_bucket(Bucket=S3_BUCKET_NAME)
+            s3_status = "connected"
+        except Exception as exc:
+            s3_status = "error"
+            s3_error = str(exc)
+
+    payload = {
+        "status": "healthy",
+        "service": "Secure Cloud Analytics",
+        "s3": {
+            "bucket": S3_BUCKET_NAME,
+            "region": AWS_REGION,
+            "status": s3_status
+        }
+    }
+
+    if s3_error:
+        payload["s3"]["error"] = s3_error
+
+    return jsonify(payload)
 
 @app.route("/vectors", methods=["GET"])
 def list_vectors():
@@ -93,6 +187,121 @@ def list_vectors():
         "vector_ids": list(stored_vectors.keys())
     })
 
+def _build_dataset_response(df, column=None, n_samples=20, for_sse=False):
+    """Build a normalized dataset response for CKKS/SSE flows."""
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    text_cols = df.select_dtypes(include=['object']).columns.tolist()
+
+    if for_sse:
+        keyword_col = column if column and column in text_cols else (text_cols[0] if text_cols else None)
+        if not keyword_col:
+            raise ValueError('No text columns available for SSE search')
+
+        sample_data = df[keyword_col].dropna().head(n_samples).tolist()
+        return {
+            "status": "success",
+            "dataset_info": {
+                "total_rows": len(df),
+                "text_columns": text_cols,
+                "selected_column": keyword_col,
+                "sample_size": len(sample_data),
+                "type": "sse"
+            },
+            "sample_data": sample_data
+        }
+
+    if not numeric_cols:
+        raise ValueError('No numeric columns found in dataset')
+
+    selected = column if column and column in numeric_cols else numeric_cols[0]
+    sample_values = pd.to_numeric(df[selected], errors='coerce').dropna().head(n_samples).tolist()
+
+    if not sample_values:
+        raise ValueError(f"No valid numeric samples found in column '{selected}'")
+
+    return {
+        "status": "success",
+        "dataset_info": {
+            "total_rows": len(df),
+            "numeric_columns": numeric_cols,
+            "text_columns": text_cols,
+            "selected_column": selected,
+            "sample_size": len(sample_values),
+            "type": "ckks"
+        },
+        "sample_data": sample_values,
+        "statistics": {
+            "mean": float(np.mean(sample_values)),
+            "min": float(np.min(sample_values)),
+            "max": float(np.max(sample_values)),
+            "std": float(np.std(sample_values))
+        }
+    }
+
+@app.route("/s3/datasets", methods=["GET"])
+def list_s3_datasets():
+    """List supported dataset files from S3 bucket/prefix."""
+    try:
+        if not _is_s3_configured():
+            return jsonify({"error": "S3 is not configured"}), 400
+
+        prefix = request.args.get("prefix", S3_DATASETS_PREFIX)
+        keys = _list_s3_dataset_keys(prefix=prefix)
+
+        return jsonify({
+            "status": "success",
+            "bucket": S3_BUCKET_NAME,
+            "region": AWS_REGION,
+            "prefix": prefix,
+            "count": len(keys),
+            "datasets": keys
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/s3/dataset/columns", methods=["GET"])
+def list_s3_dataset_columns():
+    """List numeric and text columns from an S3 dataset file."""
+    try:
+        dataset_key = request.args.get("key")
+        if not dataset_key:
+            return jsonify({"error": "Query param 'key' is required"}), 400
+
+        df = _read_s3_dataset_to_dataframe(dataset_key)
+        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+        text_cols = df.select_dtypes(include=['object']).columns.tolist()
+
+        return jsonify({
+            "status": "success",
+            "dataset_key": dataset_key,
+            "total_rows": len(df),
+            "numeric_columns": numeric_cols,
+            "text_columns": text_cols,
+            "all_columns": list(df.columns)
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/s3/dataset/load", methods=["POST"])
+def load_s3_dataset():
+    """Load sample data from an S3 dataset file for CKKS/SSE frontend flows."""
+    try:
+        data = request.json or {}
+        dataset_key = data.get("key")
+        if not dataset_key:
+            return jsonify({"error": "Field 'key' is required"}), 400
+
+        column = data.get("column")
+        n_samples = int(data.get("n_samples", 20))
+        for_sse = bool(data.get("for_sse", False))
+
+        df = _read_s3_dataset_to_dataframe(dataset_key)
+        payload = _build_dataset_response(df, column=column, n_samples=n_samples, for_sse=for_sse)
+        payload["dataset_key"] = dataset_key
+
+        return jsonify(payload)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 @app.route("/dataset/load", methods=["POST"])
 def load_dataset():
     """
@@ -588,7 +797,7 @@ def not_found(error):
     # If it's an API request, return JSON
     if request.path.startswith('/api') or request.path.startswith('/upload') or \
        request.path.startswith('/mean') or request.path.startswith('/sse') or \
-       request.path.startswith('/vectors') or request.path.startswith('/health'):
+       request.path.startswith('/vectors') or request.path.startswith('/health') or request.path.startswith('/s3'):
         return jsonify({
             "error": "Endpoint not found",
             "message": "The requested endpoint does not exist",
@@ -600,7 +809,10 @@ def not_found(error):
                 "POST /upload",
                 "GET /mean/<vector_id>",
                 "POST /sse/store",
-                "POST /sse/search"
+                "POST /sse/search",
+                "GET /s3/datasets",
+                "GET /s3/dataset/columns?key=<dataset_key>",
+                "POST /s3/dataset/load"
             ],
             "help": "Visit GET /api for detailed endpoint documentation"
         }), 404
@@ -612,3 +824,5 @@ if __name__ == "__main__":
     print("Server running on http://localhost:5001")
     print("Note: If port 5000 was in use, switched to 5001")
     app.run(debug=True, host="0.0.0.0", port=5001)
+
+
