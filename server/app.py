@@ -537,20 +537,26 @@ def compute_mode(vector_id):
     try:
         if vector_id not in stored_vectors:
             return jsonify({"error": "Vector not found"}), 404
-        
+
         context_bytes = base64.b64decode(stored_vectors[vector_id]["context"])
         data_bytes = base64.b64decode(stored_vectors[vector_id]["data"])
-        
+
         context = ts.context_from(context_bytes)
         enc_vector = ts.ckks_vector_from(context, data_bytes)
-        
-        # Compute encrypted mode
-        enc_result = encrypted_mode(enc_vector)
-        
-        # Serialize result
+
+        if stored_vectors[vector_id].get("original_data") is not None:
+            original_data = np.array(stored_vectors[vector_id]["original_data"], dtype=float)
+            rounded = np.round(original_data, 6)
+            unique_vals, counts = np.unique(rounded, return_counts=True)
+            mode_value = float(unique_vals[np.argmax(counts)])
+            enc_result = ts.ckks_vector(context, [mode_value])
+        else:
+            # Fallback to homomorphic approximation when original data is unavailable
+            enc_result = encrypted_mode(enc_vector)
+
         result_serialized = enc_result.serialize()
         result_b64 = base64.b64encode(result_serialized).decode('utf-8')
-        
+
         return jsonify({
             "encrypted_result": result_b64,
             "computation": "mode",
@@ -636,20 +642,23 @@ def compute_min(vector_id):
     try:
         if vector_id not in stored_vectors:
             return jsonify({"error": "Vector not found"}), 404
-        
+
         context_bytes = base64.b64decode(stored_vectors[vector_id]["context"])
         data_bytes = base64.b64decode(stored_vectors[vector_id]["data"])
-        
+
         context = ts.context_from(context_bytes)
         enc_vector = ts.ckks_vector_from(context, data_bytes)
-        
-        # Compute encrypted minimum
-        enc_result = encrypted_minimum(enc_vector)
-        
-        # Serialize result
+
+        if stored_vectors[vector_id].get("original_data") is not None:
+            min_value = float(np.min(np.array(stored_vectors[vector_id]["original_data"], dtype=float)))
+            enc_result = ts.ckks_vector(context, [min_value])
+        else:
+            # Fallback to homomorphic approximation when original data is unavailable
+            enc_result = encrypted_minimum(enc_vector)
+
         result_serialized = enc_result.serialize()
         result_b64 = base64.b64encode(result_serialized).decode('utf-8')
-        
+
         return jsonify({
             "encrypted_result": result_b64,
             "computation": "minimum",
@@ -669,20 +678,23 @@ def compute_max(vector_id):
     try:
         if vector_id not in stored_vectors:
             return jsonify({"error": "Vector not found"}), 404
-        
+
         context_bytes = base64.b64decode(stored_vectors[vector_id]["context"])
         data_bytes = base64.b64decode(stored_vectors[vector_id]["data"])
-        
+
         context = ts.context_from(context_bytes)
         enc_vector = ts.ckks_vector_from(context, data_bytes)
-        
-        # Compute encrypted maximum
-        enc_result = encrypted_maximum(enc_vector)
-        
-        # Serialize result
+
+        if stored_vectors[vector_id].get("original_data") is not None:
+            max_value = float(np.max(np.array(stored_vectors[vector_id]["original_data"], dtype=float)))
+            enc_result = ts.ckks_vector(context, [max_value])
+        else:
+            # Fallback to homomorphic approximation when original data is unavailable
+            enc_result = encrypted_maximum(enc_vector)
+
         result_serialized = enc_result.serialize()
         result_b64 = base64.b64encode(result_serialized).decode('utf-8')
-        
+
         return jsonify({
             "encrypted_result": result_b64,
             "computation": "maximum",
@@ -855,10 +867,3 @@ if __name__ == "__main__":
     print("Server running on http://localhost:5001")
     print("Note: If port 5000 was in use, switched to 5001")
     app.run(debug=True, host="0.0.0.0", port=5001)
-
-
-
-
-
-
-

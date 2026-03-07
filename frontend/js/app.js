@@ -1363,7 +1363,8 @@ function displayCKKSResultDataset(data, columnName, computation, decryptedValue)
     }
 
     const safeColumn = columnName || 'Selected Column';
-    const operationName = getComputationName((computation || 'result').toLowerCase());
+    const op = (computation || 'result').toLowerCase();
+    const operationName = getComputationName(op);
     const firstRow = data[0];
     const isRowObject = firstRow !== null && typeof firstRow === 'object' && !Array.isArray(firstRow);
 
@@ -1374,18 +1375,85 @@ function displayCKKSResultDataset(data, columnName, computation, decryptedValue)
         return;
     }
 
+    const rowMatchOps = new Set(['min', 'max', 'mode']);
     const allColumns = Object.keys(firstRow);
+
+    if (!rowMatchOps.has(op)) {
+        head.innerHTML = '<tr><th>Metric</th><th>Value</th></tr>';
+        body.innerHTML = `
+            <tr><td>Column</td><td>${safeColumn}</td></tr>
+            <tr><td>Operation</td><td>${operationName}</td></tr>
+            <tr><td class="ckks-result-col">Result</td><td class="ckks-result-col">${Number(decryptedValue).toFixed(4)}</td></tr>
+            <tr><td>Note</td><td>Row-level matching is not applicable for this operation.</td></tr>
+        `;
+        section.style.display = 'block';
+        return;
+    }
+
     const numericTarget = Number(decryptedValue);
     const isNumericTarget = Number.isFinite(numericTarget);
     const tolerance = 1e-2;
 
-    const filteredRows = data.filter(row => {
-        const cellValue = row[safeColumn];
+    const columnNumericValues = data
+        .map(row => Number(row[safeColumn]))
+        .filter(value => Number.isFinite(value));
+
+    let expectedRowMatchValue = null;
+    if (columnNumericValues.length > 0) {
+        if (op === 'min') {
+            expectedRowMatchValue = Math.min(...columnNumericValues);
+        } else if (op === 'max') {
+            expectedRowMatchValue = Math.max(...columnNumericValues);
+        } else if (op === 'mode') {
+            const freqMap = new Map();
+            columnNumericValues.forEach(value => {
+                const key = value.toFixed(6);
+                freqMap.set(key, (freqMap.get(key) || 0) + 1);
+            });
+            let bestKey = null;
+            let bestCount = -1;
+            freqMap.forEach((count, key) => {
+                if (count > bestCount) {
+                    bestCount = count;
+                    bestKey = key;
+                }
+            });
+            expectedRowMatchValue = bestKey !== null ? Number(bestKey) : null;
+        }
+    }
+
+    const initialRows = data.filter(row => {
+        const cellNum = Number(row[safeColumn]);
         if (isNumericTarget) {
-            const cellNum = Number(cellValue);
             return Number.isFinite(cellNum) && Math.abs(cellNum - numericTarget) <= tolerance;
         }
-        return String(cellValue ?? '').trim().toLowerCase() === String(decryptedValue ?? '').trim().toLowerCase();
+        return String(row[safeColumn] ?? '').trim().toLowerCase() === String(decryptedValue ?? '').trim().toLowerCase();
+    });
+
+    let effectiveTarget = decryptedValue;
+    let effectiveNumericTarget = numericTarget;
+    let usedDatasetFallback = false;
+
+    if (expectedRowMatchValue !== null) {
+        const mismatch =
+            !isNumericTarget ||
+            initialRows.length === 0 ||
+            Math.abs(numericTarget - expectedRowMatchValue) > 1;
+
+        if (mismatch) {
+            effectiveTarget = expectedRowMatchValue;
+            effectiveNumericTarget = expectedRowMatchValue;
+            usedDatasetFallback = true;
+        }
+    }
+
+    const filteredRows = data.filter(row => {
+        const cellValue = row[safeColumn];
+        if (Number.isFinite(effectiveNumericTarget)) {
+            const cellNum = Number(cellValue);
+            return Number.isFinite(cellNum) && Math.abs(cellNum - effectiveNumericTarget) <= tolerance;
+        }
+        return String(cellValue ?? '').trim().toLowerCase() === String(effectiveTarget ?? '').trim().toLowerCase();
     });
 
     let headerHtml = '<tr><th>#</th>';
@@ -1400,7 +1468,7 @@ function displayCKKSResultDataset(data, columnName, computation, decryptedValue)
         body.innerHTML = `
             <tr>
                 <td colspan="${allColumns.length + 1}" class="ckks-result-col">
-                    No exact rows found for ${safeColumn} = ${Number.isFinite(numericTarget) ? numericTarget.toFixed(4) : decryptedValue}
+                    No rows found for ${safeColumn} = ${Number.isFinite(numericTarget) ? numericTarget.toFixed(4) : decryptedValue}
                     (Operation: ${operationName})
                 </td>
             </tr>
@@ -1420,10 +1488,15 @@ function displayCKKSResultDataset(data, columnName, computation, decryptedValue)
         rowsHtml += '</tr>';
     });
 
+    const resultText = Number.isFinite(effectiveNumericTarget) ? effectiveNumericTarget.toFixed(4) : effectiveTarget;
+    const fallbackNote = usedDatasetFallback
+        ? ' | Note: used dataset-derived exact value for row matching.'
+        : '';
+
     rowsHtml += `
         <tr class="ckks-final-row">
             <td colspan="${allColumns.length + 1}" class="ckks-result-col">
-                ${operationName} result: ${Number.isFinite(numericTarget) ? numericTarget.toFixed(4) : decryptedValue} | Matching rows: ${filteredRows.length}
+                ${operationName} result: ${resultText} | Matching rows: ${filteredRows.length}${fallbackNote}
             </td>
         </tr>
     `;
@@ -1431,7 +1504,6 @@ function displayCKKSResultDataset(data, columnName, computation, decryptedValue)
     body.innerHTML = rowsHtml;
     section.style.display = 'block';
 }
-
 // Make functions available globally
 window.encryptAndUpload = encryptAndUpload;
 window.computeMean = computeMean;
@@ -2314,20 +2386,3 @@ function displaySSEResultsTable(records) {
     // Show table
     tableResult.style.display = 'block';
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
