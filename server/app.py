@@ -419,7 +419,7 @@ def upload():
             
             # Serialize
             vector_serialized = enc_vector.serialize()
-            context_serialized = context.serialize()
+            context_serialized = context.serialize(save_secret_key=True)
             
             vector_b64 = base64.b64encode(vector_serialized).decode('utf-8')
             context_b64 = base64.b64encode(context_serialized).decode('utf-8')
@@ -824,5 +824,6 @@ if __name__ == "__main__":
     print("Server running on http://localhost:5001")
     print("Note: If port 5000 was in use, switched to 5001")
     app.run(debug=True, host="0.0.0.0", port=5001)
+
 
 
