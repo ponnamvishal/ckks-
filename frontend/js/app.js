@@ -153,18 +153,42 @@ async function decryptResult() {
         // For demo, we'll show the encrypted result info
         const result = window.computationResult;
         const computation = window.currentComputation;
-        
+
+        // Decrypt through backend endpoint using stored vector context
+        const decryptResponse = await fetch(`${window.location.origin}/decrypt`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                encrypted_result: window.encryptedResult,
+                vector_id: result.vector_id || currentVectorId
+            })
+        });
+
+        const decryptPayload = await decryptResponse.json();
+        if (!decryptResponse.ok || decryptPayload.error) {
+            throw new Error(decryptPayload.error || 'Decryption failed');
+        }
+
+        const decryptedArray = decryptPayload.decrypted_result || [];
+        const decryptedValue = Array.isArray(decryptedArray) && decryptedArray.length > 0
+            ? decryptedArray[0]
+            : decryptedArray;
+        window.lastDecryptedValue = decryptedValue;
+
         decryptStatus.className = 'result-box success';
-        decryptStatus.textContent = `✓ Step 6 Complete: Result decrypted!\n\n` +
-            `Encrypted result: ${window.encryptedResult}\n\n` +
-            `Note: In production, client would decrypt using TenSEAL.js.\n` +
-            `For this demo, decryption happens server-side.\n\n` +
-            `Proceed to Step 7 for verification.`;
+        decryptStatus.textContent = `Step 6 Complete: Result decrypted!\n\n` +
+            `Computation: ${getComputationName(computation)}\n` +
+            `Decrypted value: ${Number(decryptedValue).toFixed(6)}\n\n` +
+            `Proceed to Step 7 for verification and final dataset view.`;
         decryptStatus.style.display = 'block';
-        
-        // NOW show visualization after decryption
+
+        // Show visualization and final dataset table after decryption
         if (uploadedData && uploadedData.length > 0 && computation) {
             renderDataChart(uploadedData, computation);
+            const selectedColumn = document.getElementById('datasetColumn')?.value || 'Selected Column';
+            displayCKKSResultDataset(uploadedData, selectedColumn, computation, decryptedValue);
         }
         
         // Show Step 7: Verification
@@ -1319,6 +1343,51 @@ function updateChart() {
     updateChartForSelectedStatistic();
 }
 
+/**
+ * Display final CKKS dataset table with decrypted result at the end.
+ */
+function displayCKKSResultDataset(data, columnName, computation, decryptedValue) {
+    const section = document.getElementById('ckksResultTableSection');
+    const head = document.getElementById('ckksResultHead');
+    const body = document.getElementById('ckksResultBody');
+
+    if (!section || !head || !body || !Array.isArray(data) || data.length === 0) {
+        return;
+    }
+
+    const safeColumn = columnName || 'Selected Column';
+    const computationName = getComputationName(computation || 'Result');
+
+    head.innerHTML = `
+        <tr>
+            <th>#</th>
+            <th>${safeColumn}</th>
+            <th>${computationName}</th>
+        </tr>
+    `;
+
+    let rows = '';
+    data.forEach((value, index) => {
+        rows += `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${value}</td>
+                <td></td>
+            </tr>
+        `;
+    });
+
+    rows += `
+        <tr style="font-weight: 700; background: rgba(16, 185, 129, 0.12);">
+            <td>Final</td>
+            <td>Computed ${computationName}</td>
+            <td>${Number(decryptedValue).toFixed(6)}</td>
+        </tr>
+    `;
+
+    body.innerHTML = rows;
+    section.style.display = 'block';
+}
 
 // Make functions available globally
 window.encryptAndUpload = encryptAndUpload;
@@ -2093,6 +2162,9 @@ function displaySSEResultsTable(records) {
     // Show table
     tableResult.style.display = 'block';
 }
+
+
+
 
 
 
