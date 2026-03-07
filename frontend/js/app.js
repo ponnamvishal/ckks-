@@ -1358,56 +1358,77 @@ function displayCKKSResultDataset(data, columnName, computation, decryptedValue)
     const head = document.getElementById('ckksResultHead');
     const body = document.getElementById('ckksResultBody');
 
-    if (!section || !head || !body) {
+    if (!section || !head || !body || !Array.isArray(data) || data.length === 0) {
         return;
     }
 
     const safeColumn = columnName || 'Selected Column';
-    const op = (computation || 'result').toLowerCase();
-    const operationName = getComputationName(op);
-    const stats = window.chartStats || {};
-    const count = Array.isArray(uploadedData) ? uploadedData.length : 0;
+    const operationName = getComputationName((computation || 'result').toLowerCase());
+    const firstRow = data[0];
+    const isRowObject = firstRow !== null && typeof firstRow === 'object' && !Array.isArray(firstRow);
 
-    const formatValue = (value) => {
-        const n = Number(value);
-        return Number.isFinite(n) ? n.toFixed(4) : String(value ?? 'N/A');
-    };
-
-    const rows = [
-        ['Column', safeColumn],
-        ['Operation', operationName],
-        ['Result', formatValue(decryptedValue)],
-        ['Count', String(count)]
-    ];
-
-    if (op === 'mean' && Number.isFinite(stats.mean)) {
-        rows.push(['Mean', formatValue(stats.mean)]);
-    } else if (op === 'mode' && Number.isFinite(stats.mode)) {
-        rows.push(['Mode', formatValue(stats.mode)]);
-    } else if (op === 'variance') {
-        if (Number.isFinite(stats.variance)) rows.push(['Variance', formatValue(stats.variance)]);
-        if (Number.isFinite(stats.std)) rows.push(['Std Dev', formatValue(stats.std)]);
-    } else if (op === 'histogram') {
-        if (Number.isFinite(stats.min)) rows.push(['Minimum', formatValue(stats.min)]);
-        if (Number.isFinite(stats.max)) rows.push(['Maximum', formatValue(stats.max)]);
-    } else if (op === 'min' && Number.isFinite(stats.min)) {
-        rows.push(['Minimum', formatValue(stats.min)]);
-    } else if (op === 'max' && Number.isFinite(stats.max)) {
-        rows.push(['Maximum', formatValue(stats.max)]);
+    if (!isRowObject) {
+        head.innerHTML = '<tr><th>#</th><th class="ckks-highlight-col">Value</th></tr>';
+        body.innerHTML = data.map((value, index) => `<tr><td>${index + 1}</td><td class="ckks-highlight-col">${value}</td></tr>`).join('');
+        section.style.display = 'block';
+        return;
     }
 
-    head.innerHTML = `
-        <tr>
-            <th>Metric</th>
-            <th>Value</th>
+    const allColumns = Object.keys(firstRow);
+    const numericTarget = Number(decryptedValue);
+    const isNumericTarget = Number.isFinite(numericTarget);
+    const tolerance = 1e-2;
+
+    const filteredRows = data.filter(row => {
+        const cellValue = row[safeColumn];
+        if (isNumericTarget) {
+            const cellNum = Number(cellValue);
+            return Number.isFinite(cellNum) && Math.abs(cellNum - numericTarget) <= tolerance;
+        }
+        return String(cellValue ?? '').trim().toLowerCase() === String(decryptedValue ?? '').trim().toLowerCase();
+    });
+
+    let headerHtml = '<tr><th>#</th>';
+    allColumns.forEach(col => {
+        const highlightClass = col === safeColumn ? ' class="ckks-highlight-col"' : '';
+        headerHtml += `<th${highlightClass}>${col}</th>`;
+    });
+    headerHtml += '</tr>';
+    head.innerHTML = headerHtml;
+
+    if (filteredRows.length === 0) {
+        body.innerHTML = `
+            <tr>
+                <td colspan="${allColumns.length + 1}" class="ckks-result-col">
+                    No exact rows found for ${safeColumn} = ${Number.isFinite(numericTarget) ? numericTarget.toFixed(4) : decryptedValue}
+                    (Operation: ${operationName})
+                </td>
+            </tr>
+        `;
+        section.style.display = 'block';
+        return;
+    }
+
+    let rowsHtml = '';
+    filteredRows.forEach((row, index) => {
+        rowsHtml += '<tr>';
+        rowsHtml += `<td>${index + 1}</td>`;
+        allColumns.forEach(col => {
+            const highlightClass = col === safeColumn ? ' class="ckks-highlight-col"' : '';
+            rowsHtml += `<td${highlightClass}>${row[col] ?? ''}</td>`;
+        });
+        rowsHtml += '</tr>';
+    });
+
+    rowsHtml += `
+        <tr class="ckks-final-row">
+            <td colspan="${allColumns.length + 1}" class="ckks-result-col">
+                ${operationName} result: ${Number.isFinite(numericTarget) ? numericTarget.toFixed(4) : decryptedValue} | Matching rows: ${filteredRows.length}
+            </td>
         </tr>
     `;
 
-    body.innerHTML = rows.map(([metric, value]) => {
-        const highlightClass = metric === 'Result' ? ' class="ckks-result-col"' : '';
-        return `<tr><td>${metric}</td><td${highlightClass}>${value}</td></tr>`;
-    }).join('');
-
+    body.innerHTML = rowsHtml;
     section.style.display = 'block';
 }
 
@@ -2293,6 +2314,7 @@ function displaySSEResultsTable(records) {
     // Show table
     tableResult.style.display = 'block';
 }
+
 
 
 
