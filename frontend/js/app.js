@@ -13,9 +13,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initTabs();
     checkServerStatus();
     loadVectors();
-    loadDatasetColumns();
     loadSSEColumns();
     refreshS3Datasets();
+    refreshSSES3Datasets();
 });
 
 /**
@@ -1669,7 +1669,7 @@ async function encryptData() {
     const datasetColumn = document.getElementById('datasetColumn');
     
     if (!uploadedFileData) {
-        alert('Please upload a file first');
+        alert('Please load an S3 dataset first');
         return;
     }
     
@@ -1867,6 +1867,115 @@ let sseSearchResults = null;
 /**
  * Upload SSE file (Step 1)
  */
+/**
+ * Refresh SSE S3 dataset list
+ */
+async function refreshSSES3Datasets() {
+    const select = document.getElementById('sseS3DatasetSelect');
+    if (!select) {
+        return;
+    }
+
+    try {
+        select.innerHTML = '<option value="">Loading S3 datasets...</option>';
+        const response = await fetch(`${window.location.origin}/s3/datasets`);
+        const result = await response.json();
+
+        if (!response.ok || result.error) {
+            throw new Error(result.error || 'Failed to fetch S3 dataset list');
+        }
+
+        select.innerHTML = '<option value="">Select S3 dataset...</option>';
+        (result.datasets || []).forEach(key => {
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = key;
+            select.appendChild(option);
+        });
+
+        if (!result.datasets || result.datasets.length === 0) {
+            select.innerHTML = '<option value="">No S3 datasets found</option>';
+        }
+    } catch (error) {
+        console.error('Error loading SSE S3 datasets:', error);
+        select.innerHTML = '<option value="">Error loading S3 datasets</option>';
+    }
+}
+
+/**
+ * Load SSE dataset records from S3 and prepare keyword column options
+ */
+async function loadSSES3Dataset() {
+    const datasetSelect = document.getElementById('sseS3DatasetSelect');
+    const fileUploadStatus = document.getElementById('sseFileUploadStatus');
+    const keywordColumnSelect = document.getElementById('sseKeywordColumn');
+
+    if (!datasetSelect || !fileUploadStatus || !keywordColumnSelect) {
+        return;
+    }
+
+    const datasetKey = datasetSelect.value;
+    if (!datasetKey) {
+        alert('Please select an S3 dataset first');
+        return;
+    }
+
+    try {
+        fileUploadStatus.className = 'result-box info';
+        fileUploadStatus.textContent = `Loading SSE dataset from S3: ${datasetKey}...`;
+        fileUploadStatus.style.display = 'block';
+
+        const response = await fetch(`${window.location.origin}/s3/dataset/records`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                key: datasetKey,
+                limit: 1000
+            })
+        });
+
+        const result = await response.json();
+        if (!response.ok || result.error) {
+            throw new Error(result.error || 'Failed to load SSE records from S3');
+        }
+
+        const records = result.records || [];
+        const columns = result.columns || [];
+        if (records.length === 0 || columns.length === 0) {
+            throw new Error('S3 dataset contains no usable records');
+        }
+
+        sseFileData = records;
+        sseFileName = datasetKey;
+        sseColumns = columns;
+
+        keywordColumnSelect.innerHTML = '<option value="">Select keyword column...</option>';
+        columns.forEach(col => {
+            const option = document.createElement('option');
+            option.value = col;
+            option.textContent = col;
+            keywordColumnSelect.appendChild(option);
+        });
+
+        fileUploadStatus.className = 'result-box success';
+        fileUploadStatus.textContent = `Step 1 Complete: S3 dataset loaded!\n\n` +
+            `Dataset: ${datasetKey}\n` +
+            `Records loaded: ${records.length}\n` +
+            `Columns: ${columns.join(', ')}\n\n` +
+            `Proceed to Step 2 to select keyword column and encrypt.`;
+        fileUploadStatus.style.display = 'block';
+    } catch (error) {
+        fileUploadStatus.className = 'result-box error';
+        fileUploadStatus.textContent = `Error loading S3 dataset: ${error.message}`;
+        fileUploadStatus.style.display = 'block';
+    }
+}
+
+window.refreshSSES3Datasets = refreshSSES3Datasets;
+window.loadSSES3Dataset = loadSSES3Dataset;
+
 async function uploadSSEFile() {
     const fileInput = document.getElementById('sseFileInput');
     const fileUploadStatus = document.getElementById('sseFileUploadStatus');
@@ -1947,7 +2056,7 @@ async function encryptSSEData() {
     const encryptStatus = document.getElementById('sseEncryptStatus');
     
     if (!sseFileData) {
-        alert('Please upload a file first');
+        alert('Please load an S3 dataset first');
         return;
     }
     
@@ -2162,6 +2271,12 @@ function displaySSEResultsTable(records) {
     // Show table
     tableResult.style.display = 'block';
 }
+
+
+
+
+
+
 
 
 

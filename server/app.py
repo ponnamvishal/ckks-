@@ -103,12 +103,12 @@ def api_info():
         "version": "2.0",
         "workflow": [
             "1. Upload dataset (POST /upload)",
-            "2. Encrypt dataset → Generate hash value",
+            "2. Encrypt dataset -> Generate hash value",
             "3. Select column (via dataset endpoints)",
             "4. Perform computations (mean, mode, variance, histogram, min, max)",
             "5. Get encrypted result",
             "6. Decrypt result (POST /decrypt)",
-            "7. Result + hash → Verified"
+            "7. Result + hash -> Verified"
         ],
         "endpoints": {
             "GET /": "Frontend interface",
@@ -127,7 +127,8 @@ def api_info():
             "POST /sse/search": "Search encrypted keywords (requires: encrypted_keyword)",
             "GET /s3/datasets": "List CSV/JSON/TXT datasets from S3",
             "GET /s3/dataset/columns?key=<dataset_key>": "Get numeric/text columns for one S3 dataset",
-            "POST /s3/dataset/load": "Load sample records from S3 dataset for CKKS/SSE workflows"
+            "POST /s3/dataset/load": "Load sample records from S3 dataset for CKKS/SSE workflows",
+            "POST /s3/dataset/records": "Load full/limited row records from S3 dataset for SSE workflow"
         },
         "examples": {
             "upload": "POST /upload with JSON: {\"id\": \"vec1\", \"plaintext\": [1,2,3], \"encrypt\": true}",
@@ -300,6 +301,35 @@ def load_s3_dataset():
         payload["dataset_key"] = dataset_key
 
         return jsonify(payload)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/s3/dataset/records", methods=["POST"])
+def load_s3_dataset_records():
+    """Load row records from an S3 dataset for SSE indexing/search workflow."""
+    try:
+        data = request.json or {}
+        dataset_key = data.get("key")
+        if not dataset_key:
+            return jsonify({"error": "Field 'key' is required"}), 400
+
+        limit = int(data.get("limit", 1000))
+        if limit <= 0:
+            return jsonify({"error": "limit must be greater than 0"}), 400
+
+        df = _read_s3_dataset_to_dataframe(dataset_key)
+        df = df.head(limit)
+
+        # Convert NaN to empty string for clean JSON rendering in frontend table
+        records = df.fillna("").astype(str).to_dict(orient="records")
+
+        return jsonify({
+            "status": "success",
+            "dataset_key": dataset_key,
+            "total_rows": len(df),
+            "columns": list(df.columns),
+            "records": records
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 @app.route("/dataset/load", methods=["POST"])
@@ -812,7 +842,8 @@ def not_found(error):
                 "POST /sse/search",
                 "GET /s3/datasets",
                 "GET /s3/dataset/columns?key=<dataset_key>",
-                "POST /s3/dataset/load"
+                "POST /s3/dataset/load",
+                "POST /s3/dataset/records"
             ],
             "help": "Visit GET /api for detailed endpoint documentation"
         }), 404
@@ -824,6 +855,10 @@ if __name__ == "__main__":
     print("Server running on http://localhost:5001")
     print("Note: If port 5000 was in use, switched to 5001")
     app.run(debug=True, host="0.0.0.0", port=5001)
+
+
+
+
 
 
 
