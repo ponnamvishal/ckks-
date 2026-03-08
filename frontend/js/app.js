@@ -2127,7 +2127,7 @@ async function searchSSEKeyword() {
         keywordEncryptStatus.className = 'result-box success';
         keywordEncryptStatus.textContent = `✓ Step 4 Complete: Search keyword encrypted!\n\n` +
             `Original keyword: ${keyword}\n` +
-            `Encrypted: ${encryptedKeyword.substring(0, 20)}...\n\n` +
+            `Encrypted: ${encryptedKeyword}\n\n` +
             `Sending encrypted keyword to server...`;
         keywordEncryptStatus.style.display = 'block';
         
@@ -2242,5 +2242,3 @@ function displaySSEResultsTable(records) {
     // Show table
     tableResult.style.display = 'block';
 }
-
-
