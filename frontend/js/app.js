@@ -13,7 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initTabs();
     checkServerStatus();
     loadVectors();
-    loadSSEColumns();
     refreshS3Datasets();
     refreshSSES3Datasets();
 });
@@ -419,30 +418,6 @@ async function loadVectors() {
     }
 }
 
-/**
- * Load dataset columns
- */
-async function loadDatasetColumns() {
-    const columnSelect = document.getElementById('datasetColumn');
-    
-    try {
-        const response = await fetch(`${window.location.origin}/dataset/columns`);
-        const result = await response.json();
-        
-        if (result.status === 'success') {
-            columnSelect.innerHTML = '<option value="">Select a column...</option>';
-            result.numeric_columns.forEach(col => {
-                const option = document.createElement('option');
-                option.value = col;
-                option.textContent = col;
-                columnSelect.appendChild(option);
-            });
-        }
-    } catch (error) {
-        console.error('Error loading columns:', error);
-        columnSelect.innerHTML = '<option value="">Error loading columns</option>';
-    }
-}
 
 /**
  * Load available datasets from S3
@@ -892,63 +867,6 @@ function readFileContent(file) {
         reader.onerror = (e) => reject(new Error('Failed to read file'));
         reader.readAsText(file);
     });
-}
-async function loadDatasetData() {
-    const columnSelect = document.getElementById('datasetColumn');
-    const dataInput = document.getElementById('dataInput');
-    const uploadResult = document.getElementById('uploadResult');
-    const uploadStatus = document.getElementById('uploadStatus');
-    
-    const column = columnSelect.value;
-    
-    if (!column) {
-        alert('Please select a column first');
-        return;
-    }
-    
-    try {
-        uploadStatus.className = 'result-box info';
-        uploadStatus.textContent = 'Loading dataset...';
-        uploadResult.style.display = 'block';
-        
-        const response = await fetch(`${window.location.origin}/dataset/load`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                column: column,
-                n_samples: 50
-            })
-        });
-        
-        const result = await response.json();
-        
-        if (result.status === 'success') {
-            // Populate the data input field
-            dataInput.value = result.sample_data.join(', ');
-            
-            // Store data for later visualization
-            uploadedData = result.sample_data;
-            
-            uploadStatus.className = 'result-box success';
-            uploadStatus.textContent = `✓ Dataset loaded!\n\n` +
-                `Column: ${result.dataset_info.selected_column}\n` +
-                `Samples: ${result.dataset_info.sample_size}\n` +
-                `Statistics:\n` +
-                `  Mean: ${result.statistics.mean.toFixed(2)}\n` +
-                `  Min: ${result.statistics.min.toFixed(2)}\n` +
-                `  Max: ${result.statistics.max.toFixed(2)}\n` +
-                `  Std: ${result.statistics.std.toFixed(2)}\n\n` +
-                `Data loaded into input field. Click "Encrypt & Upload" to proceed.`;
-        } else {
-            throw new Error(result.error || 'Failed to load dataset');
-        }
-    } catch (error) {
-        uploadStatus.className = 'result-box error';
-        uploadStatus.textContent = `Error: ${error.message}`;
-        uploadResult.style.display = 'block';
-    }
 }
 
 
@@ -1531,93 +1449,11 @@ window.computeStatistic = computeStatistic;
 window.storeDocument = storeDocument;
 window.searchDocuments = searchDocuments;
 window.loadVectors = loadVectors;
-window.loadDatasetColumns = loadDatasetColumns;
-window.loadDatasetData = loadDatasetData;
 window.uploadExternalFile = uploadExternalFile;
 window.updateChart = updateChart;
-/**
- * Load SSE text columns from dataset
- */
-async function loadSSEColumns() {
-    const sseColumnSelect = document.getElementById('sseColumnSelect');
-    
-    if (!sseColumnSelect) {
-        return;
-    }
-    
-    try {
-        const API_BASE_URL = window.location.origin;
-        const response = await fetch(`${API_BASE_URL}/dataset/columns`);
-        const result = await response.json();
-        
-        if (result.status === 'success') {
-            sseColumnSelect.innerHTML = '<option value="">Select a text column...</option>';
-            if (result.text_columns && result.text_columns.length > 0) {
-                result.text_columns.forEach(col => {
-                    const option = document.createElement('option');
-                    option.value = col;
-                    option.textContent = col;
-                    sseColumnSelect.appendChild(option);
-                });
-            } else {
-                sseColumnSelect.innerHTML = '<option value="">No text columns available</option>';
-            }
-        }
-    } catch (error) {
-        console.error('Error loading SSE columns:', error);
-        if (sseColumnSelect) {
-            sseColumnSelect.innerHTML = '<option value="">Error loading columns</option>';
-        }
-    }
-}
-
-/**
- * Load sample keywords from dataset for SSE
- */
-async function loadSSEData() {
-    const sseColumnSelect = document.getElementById('sseColumnSelect');
-    const keywordInput = document.getElementById('keywordInput');
-    
-    const column = sseColumnSelect ? sseColumnSelect.value : '';
-    
-    if (!column) {
-        alert('Please select a text column first');
-        return;
-    }
-    
-    try {
-        const API_BASE_URL = window.location.origin;
-        const response = await fetch(`${API_BASE_URL}/dataset/load`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                column: column,
-                n_samples: 10,
-                for_sse: true
-            })
-        });
-        
-        const result = await response.json();
-        
-        if (result.status === 'success') {
-            // Show first sample keyword
-            if (result.sample_data && result.sample_data.length > 0) {
-                keywordInput.value = result.sample_data[0];
-                alert(`Loaded sample keyword: "${result.sample_data[0]}"\n\nAvailable keywords: ${result.sample_data.slice(0, 5).join(', ')}${result.sample_data.length > 5 ? '...' : ''}`);
-            }
-        } else {
-            throw new Error(result.error || 'Failed to load SSE data');
-        }
-    } catch (error) {
-        alert(`Error: ${error.message}`);
-    }
-}
 
 
-window.loadSSEColumns = loadSSEColumns;
-window.loadSSEData = loadSSEData;
+
 window.updateChart = updateChart;
 /**
  * Global variables for new workflow
@@ -2406,3 +2242,5 @@ function displaySSEResultsTable(records) {
     // Show table
     tableResult.style.display = 'block';
 }
+
+

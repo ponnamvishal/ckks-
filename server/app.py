@@ -331,96 +331,7 @@ def load_s3_dataset_records():
             "records": records
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-@app.route("/dataset/load", methods=["POST"])
-def load_dataset():
-    """
-    Load example dataset and return sample data.
-    Expects JSON: {"column": str (optional), "n_samples": int (optional), "for_sse": bool (optional)}
-    """
-    try:
-        from data.load_kaggle_dataset import load_dataset, get_numeric_columns, get_sample_data
-        
-        df = load_dataset()
-        numeric_cols = get_numeric_columns(df)
-        
-        data = request.json or {}
-        column = data.get("column")
-        n_samples = data.get("n_samples", 20)
-        for_sse = data.get("for_sse", False)
-        
-        if for_sse:
-            # Return text data for SSE search
-            text_cols = df.select_dtypes(include=['object']).columns.tolist()
-            keyword_col = column if column and column in text_cols else (text_cols[0] if text_cols else None)
-            
-            if not keyword_col:
-                return jsonify({"error": "No text columns available for SSE search"}), 400
-            
-            sample_data = df[keyword_col].dropna().head(n_samples).tolist()
-            
-            return jsonify({
-                "status": "success",
-                "dataset_info": {
-                    "total_rows": len(df),
-                    "text_columns": text_cols,
-                    "selected_column": keyword_col,
-                    "sample_size": len(sample_data),
-                    "type": "sse"
-                },
-                "sample_data": sample_data
-            })
-        else:
-            # Return numeric data for CKKS computation
-            if column and column not in numeric_cols:
-                return jsonify({"error": f"Column '{column}' not found or not numeric"}), 400
-            
-            # Get sample data
-            sample_values = get_sample_data(df, column=column, n_samples=n_samples)
-            
-            return jsonify({
-                "status": "success",
-                "dataset_info": {
-                    "total_rows": len(df),
-                    "numeric_columns": numeric_cols,
-                    "selected_column": column or numeric_cols[0],
-                    "sample_size": len(sample_values),
-                    "type": "ckks"
-                },
-                "sample_data": sample_values,
-                "statistics": {
-                    "mean": float(np.mean(sample_values)),
-                    "min": float(np.min(sample_values)),
-                    "max": float(np.max(sample_values)),
-                    "std": float(np.std(sample_values))
-                }
-            })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route("/dataset/columns", methods=["GET"])
-def list_dataset_columns():
-    """List available numeric and text columns in the dataset."""
-    try:
-        from data.load_kaggle_dataset import load_dataset, get_numeric_columns
-        
-        df = load_dataset()
-        numeric_cols = get_numeric_columns(df)
-        
-        # Get text columns (for SSE search)
-        text_cols = df.select_dtypes(include=['object']).columns.tolist()
-        
-        return jsonify({
-            "status": "success",
-            "numeric_columns": numeric_cols,
-            "text_columns": text_cols,
-            "total_rows": len(df),
-            "all_columns": list(df.columns)
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route("/upload", methods=["POST"])
+        return jsonify({"error": str(e)}), 500`r`n`r`n@app.route("/upload", methods=["POST"])
 def upload():
     """
     Upload encrypted CKKS vector to cloud storage with hash generation.
@@ -867,3 +778,4 @@ if __name__ == "__main__":
     print("Server running on http://localhost:5001")
     print("Note: If port 5000 was in use, switched to 5001")
     app.run(debug=True, host="0.0.0.0", port=5001)
+

@@ -83,8 +83,6 @@ frontend/
   js/app.js
   js/api-client.js
   js/crypto-utils.js
-data/
-  README.md
 requirements.txt
 README.md
 ```
@@ -174,3 +172,4 @@ curl "http://127.0.0.1:5001/s3/dataset/columns?key=healthcare_dataset.csv"
 ## License
 
 For educational and research use.
+
