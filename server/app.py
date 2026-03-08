@@ -331,7 +331,9 @@ def load_s3_dataset_records():
             "records": records
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500`r`n`r`n@app.route("/upload", methods=["POST"])
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/upload", methods=["POST"])
 def upload():
     """
     Upload encrypted CKKS vector to cloud storage with hash generation.
@@ -778,5 +780,3 @@ if __name__ == "__main__":
     print("Server running on http://0.0.0.0:5001")
     print("Note: If port 5000 was in use, switched to 5001")
     app.run(debug=True, host="0.0.0.0", port=5001)
-
-
