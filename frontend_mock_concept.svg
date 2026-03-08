@@ -1,0 +1,68 @@
+﻿<svg width="1400" height="900" viewBox="0 0 1400 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F4F7FB"/>
+      <stop offset="100%" stop-color="#EAF2FF"/>
+    </linearGradient>
+    <linearGradient id="header" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1D4ED8"/>
+      <stop offset="100%" stop-color="#0F766E"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1400" height="900" fill="url(#bg)"/>
+
+  <rect x="40" y="28" width="1320" height="90" rx="16" fill="url(#header)"/>
+  <text x="75" y="72" fill="#fff" font-family="Poppins, Arial" font-size="30" font-weight="700">Secure Cloud Analytics</text>
+  <text x="75" y="98" fill="#DDEBFF" font-family="Source Sans 3, Arial" font-size="18">CKKS + SSE on AWS (EC2 + S3)</text>
+
+  <rect x="40" y="140" width="260" height="710" rx="14" fill="#FFFFFF" stroke="#E2E8F0"/>
+  <text x="70" y="180" fill="#0F172A" font-family="Poppins, Arial" font-size="20" font-weight="600">Workflow</text>
+
+  <g font-family="Source Sans 3, Arial" font-size="17" fill="#334155">
+    <rect x="65" y="205" width="210" height="46" rx="10" fill="#DBEAFE"/><text x="80" y="235">1. Load S3 Dataset</text>
+    <rect x="65" y="262" width="210" height="46" rx="10" fill="#DBEAFE"/><text x="80" y="292">2. Encrypt Column</text>
+    <rect x="65" y="319" width="210" height="46" rx="10" fill="#DBEAFE"/><text x="80" y="349">3. Select Operation</text>
+    <rect x="65" y="376" width="210" height="46" rx="10" fill="#DBEAFE"/><text x="80" y="406">4. Compute on Cipher</text>
+    <rect x="65" y="433" width="210" height="46" rx="10" fill="#DBEAFE"/><text x="80" y="463">5. Decrypt Result</text>
+    <rect x="65" y="490" width="210" height="46" rx="10" fill="#DBEAFE"/><text x="80" y="520">6. Verify + Visualize</text>
+  </g>
+
+  <rect x="325" y="140" width="1035" height="180" rx="14" fill="#FFFFFF" stroke="#E2E8F0"/>
+  <text x="355" y="180" fill="#0F172A" font-family="Poppins, Arial" font-size="22" font-weight="600">Step 1: Upload Dataset</text>
+  <rect x="355" y="205" width="760" height="46" rx="10" fill="#F8FAFC" stroke="#CBD5E1"/>
+  <text x="375" y="235" fill="#64748B" font-family="Source Sans 3, Arial" font-size="16">Select S3 object key (CSV)</text>
+  <rect x="1130" y="205" width="200" height="46" rx="10" fill="#1D4ED8"/>
+  <text x="1195" y="235" fill="#FFFFFF" font-family="Source Sans 3, Arial" font-size="17" font-weight="600">Load Data</text>
+  <rect x="355" y="265" width="975" height="36" rx="8" fill="#ECFDF5" stroke="#10B981"/>
+  <text x="375" y="288" fill="#065F46" font-family="Source Sans 3, Arial" font-size="15">Loaded 200 rows from homomorphicckks / healthcare_dataset.csv</text>
+
+  <rect x="325" y="340" width="1035" height="245" rx="14" fill="#FFFFFF" stroke="#E2E8F0"/>
+  <text x="355" y="380" fill="#0F172A" font-family="Poppins, Arial" font-size="22" font-weight="600">Encrypted Result + Statistics</text>
+  <rect x="355" y="400" width="975" height="72" rx="10" fill="#F1F5F9" stroke="#CBD5E1"/>
+  <text x="375" y="430" fill="#334155" font-family="JetBrains Mono, Consolas" font-size="14">Encrypted result: CgEBe0CBCF6hEAQBAgA...</text>
+  <text x="375" y="452" fill="#334155" font-family="JetBrains Mono, Consolas" font-size="14">Decrypted (Minimum): 21.0000</text>
+
+  <rect x="355" y="485" width="975" height="80" rx="10" fill="#ECFDF5" stroke="#10B981"/>
+  <text x="375" y="513" fill="#065F46" font-family="Source Sans 3, Arial" font-size="16">Statistics: Minimum = 21.0000, Count = 200</text>
+  <text x="375" y="538" fill="#065F46" font-family="Source Sans 3, Arial" font-size="15">Final table shows only rows where Age = 21 (or nearest if exact missing)</text>
+
+  <rect x="325" y="605" width="1035" height="245" rx="14" fill="#FFFFFF" stroke="#E2E8F0"/>
+  <text x="355" y="645" fill="#0F172A" font-family="Poppins, Arial" font-size="22" font-weight="600">Final Dataset Result</text>
+
+  <rect x="355" y="665" width="975" height="42" rx="8" fill="#4F46E5"/>
+  <text x="375" y="692" fill="#FFFFFF" font-family="Source Sans 3, Arial" font-size="15" font-weight="700">#    AGE    BMI    GLUCOSE    INSULIN    OUTCOME</text>
+
+  <rect x="355" y="707" width="975" height="34" fill="#F8FAFC"/>
+  <rect x="413" y="707" width="64" height="34" fill="#DBEAFE"/>
+  <text x="375" y="729" fill="#0F172A" font-family="Source Sans 3, Arial" font-size="14">1</text>
+  <text x="435" y="729" fill="#0F172A" font-family="Source Sans 3, Arial" font-size="14" font-weight="700">21</text>
+  <text x="505" y="729" fill="#0F172A" font-family="Source Sans 3, Arial" font-size="14">28.1</text>
+
+  <rect x="355" y="741" width="975" height="34" fill="#F1F5F9"/>
+  <rect x="413" y="741" width="64" height="34" fill="#DBEAFE"/>
+  <text x="375" y="763" fill="#0F172A" font-family="Source Sans 3, Arial" font-size="14">2</text>
+  <text x="435" y="763" fill="#0F172A" font-family="Source Sans 3, Arial" font-size="14" font-weight="700">21</text>
+
+  <text x="40" y="885" fill="#64748B" font-family="Source Sans 3, Arial" font-size="14">Demo UI concept for major project presentation</text>
+</svg>
