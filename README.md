@@ -127,13 +127,13 @@ Also ensure EC2 security group allows inbound TCP `5001`.
 
 ```bash
 # health
-curl http://127.0.0.1:5001/health
+curl http://13.49.222.79:5001/health
 
 # list S3 datasets
-curl http://127.0.0.1:5001/s3/datasets
+curl http://13.49.222.79:5001/s3/datasets
 
 # list columns for one key
-curl "http://127.0.0.1:5001/s3/dataset/columns?key=healthcare_dataset.csv"
+curl "http://13.49.222.79:5001/s3/dataset/columns?key=healthcare_dataset.csv"
 ```
 
 ## Main Endpoints
@@ -172,4 +172,5 @@ curl "http://127.0.0.1:5001/s3/dataset/columns?key=healthcare_dataset.csv"
 ## License
 
 For educational and research use.
+
 

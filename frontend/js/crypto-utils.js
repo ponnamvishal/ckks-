@@ -3,7 +3,7 @@
  * Note: This is a simplified version. In production, you'd use proper libraries.
  */
 
-const API_BASE_URL = 'http://localhost:5001';
+const API_BASE_URL = window.location.origin;
 
 // CKKS Context (simplified - in production, this would be properly initialized)
 let ckksContext = null;
@@ -149,3 +149,4 @@ window.calculateStandardDeviation = calculateStandardDeviation;
 window.calculateVariance = calculateVariance;
 window.calculateMin = calculateMin;
 window.calculateMax = calculateMax;
+
