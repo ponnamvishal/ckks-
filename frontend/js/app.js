@@ -1680,7 +1680,8 @@ async function encryptData() {
                 encryptedColumns[column] = {
                     vectorId: result.vector_id,
                     hash: result.hash,
-                    dataPoints: result.data_points
+                    dataPoints: result.data_points,
+                    encryptedData: result.encrypted_data || ''
                 };
                 hashes[column] = result.hash;
             }
@@ -1689,6 +1690,16 @@ async function encryptData() {
         // Store globally
         window.encryptedColumns = encryptedColumns;
         window.columnHashes = hashes;
+        const encryptedPayloadDetails = fileColumns
+            .filter(col => encryptedColumns[col])
+            .map(col => {
+                const info = encryptedColumns[col];
+                return `Column: ${col}\n` +
+                    `Vector ID: ${info.vectorId}\n` +
+                    `Hash: ${info.hash}\n` +
+                    `Encrypted Dataset: ${info.encryptedData}\n`;
+            })
+            .join('\n');
         
         uploadStatus.className = 'result-box success';
         uploadStatus.textContent = `✓ Step 2 Complete: All columns encrypted and hashes generated!\n\n` +
@@ -1697,6 +1708,7 @@ async function encryptData() {
             `Hashes generated: ${Object.keys(hashes).length}\n\n` +
             `✓ Data encrypted using CKKS\n` +
             `✓ Hashes generated for verification\n\n` +
+            `${encryptedPayloadDetails}\n` +
             `Proceed to Step 3 to select a column for analysis.`;
         uploadStatus.style.display = 'block';
         

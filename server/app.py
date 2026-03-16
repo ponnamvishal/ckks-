@@ -380,6 +380,7 @@ def upload():
                 "status": "stored",
                 "vector_id": vector_id,
                 "hash": data_hash,
+                "encrypted_data": vector_b64,
                 "message": "Encrypted vector stored successfully with hash",
                 "data_points": len(plaintext)
             })
@@ -402,6 +403,7 @@ def upload():
                 "status": "stored",
                 "vector_id": vector_id,
                 "hash": data_hash,
+                "encrypted_data": data["data"],
                 "message": "Encrypted vector stored successfully with hash"
             })
     except Exception as e:
