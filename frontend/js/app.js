@@ -1637,6 +1637,7 @@ async function processJSONForWorkflow(content, fileName) {
  */
 async function encryptData() {
     const uploadStatus = document.getElementById('uploadStatus');
+    const encryptedPayloadStatus = document.getElementById('encryptedPayloadStatus');
     const datasetColumn = document.getElementById('datasetColumn');
     
     if (!uploadedFileData) {
@@ -1648,6 +1649,10 @@ async function encryptData() {
         uploadStatus.className = 'result-box info';
         uploadStatus.textContent = 'Step 2: Encrypting all columns and generating hash...';
         uploadStatus.style.display = 'block';
+        if (encryptedPayloadStatus) {
+            encryptedPayloadStatus.style.display = 'none';
+            encryptedPayloadStatus.textContent = '';
+        }
         
         // Encrypt all columns
         const encryptedColumns = {};
@@ -1708,9 +1713,14 @@ async function encryptData() {
             `Hashes generated: ${Object.keys(hashes).length}\n\n` +
             `✓ Data encrypted using CKKS\n` +
             `✓ Hashes generated for verification\n\n` +
-            `${encryptedPayloadDetails}\n` +
             `Proceed to Step 3 to select a column for analysis.`;
         uploadStatus.style.display = 'block';
+
+        if (encryptedPayloadStatus) {
+            encryptedPayloadStatus.className = 'result-box info';
+            encryptedPayloadStatus.textContent = `Step 2: Encrypted Dataset Payloads\n\n${encryptedPayloadDetails}`;
+            encryptedPayloadStatus.style.display = 'block';
+        }
         
         // Populate column dropdown
         datasetColumn.innerHTML = '<option value="">Select a column...</option>';
@@ -1725,6 +1735,10 @@ async function encryptData() {
         uploadStatus.className = 'result-box error';
         uploadStatus.textContent = `Error: ${error.message}`;
         uploadStatus.style.display = 'block';
+        if (encryptedPayloadStatus) {
+            encryptedPayloadStatus.style.display = 'none';
+            encryptedPayloadStatus.textContent = '';
+        }
     }
 }
 
