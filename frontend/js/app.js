@@ -116,10 +116,17 @@ async function computeStatistic() {
         computationStatus.style.display = 'block';
         
         // Show Step 5: Encrypted Result
+        const encryptedPreview = window.encryptedResult
+            ? `${window.encryptedResult.substring(0, 80)}...`
+            : 'N/A';
+        const encryptedSize = window.encryptedResult ? window.encryptedResult.length : 0;
+
         encryptedResultStatus.className = 'result-box info';
         encryptedResultStatus.textContent = `Step 5: Encrypted Result Ready\n\n` +
-            `Encrypted result: ${window.encryptedResult}\n\n` +
-            `Result is still encrypted. Click "Decrypt Result" in Step 6 to see the actual value.`;
+            `Computation: ${getComputationName(computation)}\n` +
+            `Encrypted payload size: ${encryptedSize} characters\n` +
+            `Ciphertext preview: ${encryptedPreview}\n\n` +
+            `Result remains encrypted in this step. Use Step 6 to decrypt and view the actual value.`;
         encryptedResultStatus.style.display = 'block';
         
         // DON'T show visualization yet - wait for decryption
